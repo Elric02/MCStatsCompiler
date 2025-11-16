@@ -2,9 +2,7 @@ pandas
 numpy
 openpyxl
 paramiko
+excel2img
 requests
 configparser
-nbt
-pillow
-matplotlib
-networkx
+nbtlib

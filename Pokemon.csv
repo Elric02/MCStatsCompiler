@@ -998,9 +998,9 @@ ID,Name,Form,Cobblemon,Cobblemonform,Legendary
 998,Baxcalibur, ,baxcalibur,normal,false
 999,Gimmighoul,Chest Form,gimmighoul,normal,false
 1000,Gholdengo, ,gholdengo,normal,false
-1001,Wo-Chien, ,wochien,normal,true
+1001,Wo-Chien, ,wochien,normal,false
 1002,Chien-Pao, ,chienpao,normal,true
-1003,Ting-Lu, ,tinglu,normal,true
+1003,Ting-Lu, ,tinglu,normal,false
 1004,Chi-Yu, ,chiyu,normal,true
 1005,Roaring Moon, ,roaringmoon,normal,false
 1006,Iron Valiant, ,ironvaliant,normal,false
@@ -1011,9 +1011,9 @@ ID,Name,Form,Cobblemon,Cobblemonform,Legendary
 1011,Dipplin, ,dipplin,normal,false
 1012,Poltchageist, ,poltchageist,normal,false
 1013,Sinistcha, ,sinistcha,normal,false
-1014,Okidogi, ,okidogi,normal,true
-1015,Munkidori, ,munkidori,normal,true
-1016,Fezandipiti, ,fezandipiti,normal,true
+1014,Okidogi, ,okidogi,normal,false
+1015,Munkidori, ,munkidori,normal,false
+1016,Fezandipiti, ,fezandipiti,normal,false
 1017,Ogerpon,Teal Mask,ogerpon,normal,true
 1018,Archaludon, ,archaludon,normal,false
 1019,Hydrapple, ,hydrapple,normal,false
