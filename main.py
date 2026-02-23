@@ -215,8 +215,8 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
             temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
             nbtfile = nbt.nbt.NBTFile(local_file,'r')
             if importcobblemon == "true":
-                money[temp_name.iloc[0]] = math.floor(nbtfile['cardinal_components']['numismatic-overhaul:currency']['Value'].value/10000)
-                waystones[temp_name.iloc[0]] = len(nbtfile['BalmData']['WaystonesData']['Waystones'])
+                money[temp_name.iloc[0]] = math.floor(int(nbtfile['CobbleDollars'].value)/10000)
+                waystones[temp_name.iloc[0]] = len(nbtfile['fwaystones']['discovered_waystones'])
         if importcobblemon == "true":
             money = pd.DataFrame(money, index=["money"]).transpose()
             waystones = pd.DataFrame(waystones, index=["waystones"]).transpose()
@@ -319,7 +319,7 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
             else:
                 df = df.join(temp_df, how="outer")
             
-        # Userdata
+        # Playerdata
         for filename in os.listdir(playerdata_path):
             filename = filename.split("/")[-1]
             if filename[-1] == "." or filename[-4:] == "_old" or filename == "player_roles" or filename == ".gitignore":
@@ -328,8 +328,8 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
             temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
             nbtfile = nbt.nbt.NBTFile(playerdata_path + '/' + filename,'r')
             if importcobblemon == "true":
-                money[temp_name.iloc[0]] = math.floor(nbtfile['cardinal_components']['numismatic-overhaul:currency']['Value'].value/10000)
-                waystones[temp_name.iloc[0]] = len(nbtfile['BalmData']['WaystonesData']['Waystones'])
+                money[temp_name.iloc[0]] = math.floor(int(nbtfile['CobbleDollars'].value)/10000)
+                waystones[temp_name.iloc[0]] = len(nbtfile['fwaystones']['discovered_waystones'])
         if importcobblemon == "true":
             money = pd.DataFrame(money, index=["money"]).transpose()
             waystones = pd.DataFrame(waystones, index=["waystones"]).transpose()
