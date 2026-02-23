@@ -82,7 +82,7 @@ def list_sftp_directory(sftp, path="."):
         print(f"Error listing directory: {e}")
 
 
-def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath, csvtogglemoney, csvpathmoney):
+def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath, csvtogglemoney, csvpathmoney, importcobblemon):
     df = pd.DataFrame()
     money = {}
     waystones = {}
@@ -214,10 +214,12 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
                     ftpserver.get(filename, local_file)
             temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
             nbtfile = nbt.nbt.NBTFile(local_file,'r')
-            money[temp_name.iloc[0]] = math.floor(nbtfile['cardinal_components']['numismatic-overhaul:currency']['Value'].value/10000)
-            waystones[temp_name.iloc[0]] = len(nbtfile['BalmData']['WaystonesData']['Waystones'])
-        money = pd.DataFrame(money, index=["money"]).transpose()
-        waystones = pd.DataFrame(waystones, index=["waystones"]).transpose()
+            if importcobblemon == "true":
+                money[temp_name.iloc[0]] = math.floor(nbtfile['cardinal_components']['numismatic-overhaul:currency']['Value'].value/10000)
+                waystones[temp_name.iloc[0]] = len(nbtfile['BalmData']['WaystonesData']['Waystones'])
+        if importcobblemon == "true":
+            money = pd.DataFrame(money, index=["money"]).transpose()
+            waystones = pd.DataFrame(waystones, index=["waystones"]).transpose()
         
         # Go back to previous folder, now use advancements
         if inputmode == "ftp":
@@ -273,6 +275,8 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
             depth = len([x for x in current_path.split("/") if x]) if current_path != "/" else 0
             if depth > 0:
                 ftpserver.chdir("../" * depth)
+
+    # Input mode different than FTP/SFTP
     else:
         if inputmode == "manual":
             names_file = open('data/usercache/usercache.json', 'r')
@@ -323,10 +327,12 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
             print("Now processing", filename)
             temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
             nbtfile = nbt.nbt.NBTFile(playerdata_path + '/' + filename,'r')
-            money[temp_name.iloc[0]] = math.floor(nbtfile['cardinal_components']['numismatic-overhaul:currency']['Value'].value/10000)
-            waystones[temp_name.iloc[0]] = len(nbtfile['BalmData']['WaystonesData']['Waystones'])
-        money = pd.DataFrame(money, index=["money"]).transpose()
-        waystones = pd.DataFrame(waystones, index=["waystones"]).transpose()
+            if importcobblemon == "true":
+                money[temp_name.iloc[0]] = math.floor(nbtfile['cardinal_components']['numismatic-overhaul:currency']['Value'].value/10000)
+                waystones[temp_name.iloc[0]] = len(nbtfile['BalmData']['WaystonesData']['Waystones'])
+        if importcobblemon == "true":
+            money = pd.DataFrame(money, index=["money"]).transpose()
+            waystones = pd.DataFrame(waystones, index=["waystones"]).transpose()
             
         # Advancements
         for filename in os.listdir(advancements_path):
@@ -1186,7 +1192,7 @@ conn = init_database("scoreboard.db")
 
 # Load the vanilla data
 print("LOADING VANILLA DATA")
-vanilla_df, money_df, waystones_df, advancements_df = loadVanillaData(config['VANILLALEADERBOARD']['CreateCSV'], config['VANILLALEADERBOARD']['CSVPath'], config['INPUT']['Mode'], ftp_server, config['INPUT']['FTPPath'], config['INPUT']['LocalPath'], config['VANILLALEADERBOARD']['CreateCSVMoney'], config['VANILLALEADERBOARD']['CSVPathMoney'])
+vanilla_df, money_df, waystones_df, advancements_df = loadVanillaData(config['VANILLALEADERBOARD']['CreateCSV'], config['VANILLALEADERBOARD']['CSVPath'], config['INPUT']['Mode'], ftp_server, config['INPUT']['FTPPath'], config['INPUT']['LocalPath'], config['VANILLALEADERBOARD']['CreateCSVMoney'], config['VANILLALEADERBOARD']['CSVPathMoney'], config['INPUT']['ImportCobblemon'])
 
 # Load the Cobblemon data
 if config['INPUT']['ImportCobblemon'] == "true":
