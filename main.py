@@ -1250,13 +1250,13 @@ if config['INPUT']['ImportCobblemon'] == "true":
     pokemons_db = pd.read_csv('staticdata/Pokemon.csv')
     legendary_list = pokemons_db.loc[pokemons_db['Legendary'] == True]
 
-    # Other counting features
+    # [DEPRECATED] Other counting features
     count_df['times_caught'] = count_df.apply(lambda row: (row == "CAUGHT").sum(), axis=1)
     #print(count_df['times_caught'].sort_values().to_string())
-    print("Seen or caught:", len(count_df))
+    #print("Seen or caught:", len(count_df))
     # Get yet-uncaught pokemons
     caught_count_df = count_df.loc[count_df['times_caught'] > 0]
-    print("Caught only:", len(caught_count_df))
+    #print("Caught only:", len(caught_count_df))
     caught_list = (caught_count_df.index.get_level_values(0) + "_" + caught_count_df.index.get_level_values(1)).to_list()
     count_df.drop('times_caught', axis=1, inplace=True)
     uncaught_list = []
@@ -1264,20 +1264,20 @@ if config['INPUT']['ImportCobblemon'] == "true":
         value = row['Cobblemon'] + "_" + row['Cobblemonform']
         if value not in caught_list:
             uncaught_list.append(value)
-    print("Not caught yet (or uncatchable):", len(uncaught_list))
-    print(uncaught_list)
+    #print("Not caught yet (or uncatchable):", len(uncaught_list))
+    #print(uncaught_list)
     uncaught_excluded_list = list(filter(lambda x: "UNKNOWN" not in x, uncaught_list))
     uncaught_excluded_list.sort()
-    print("Not caught yet (or uncatchable), excluding UNKNOWN forms:", len(uncaught_excluded_list))
-    print(uncaught_excluded_list)
+    #print("Not caught yet (or uncatchable), excluding UNKNOWN forms:", len(uncaught_excluded_list))
+    #print(uncaught_excluded_list)
     # Any pokemons found that are not in pokemon.csv?
     unknown_list = []
     for pokemon in caught_list:
         values = pokemons_db['Cobblemon'] + "_" + pokemons_db['Cobblemonform']
         if pokemon not in values.tolist():
             unknown_list.append(pokemon)
-    print("Caught pokemons not found in the db:", len(unknown_list))
-    print(unknown_list)
+    #print("Caught pokemons not found in the db:", len(unknown_list))
+    #print(unknown_list)
 
     leaderboards = {}
 
@@ -1294,7 +1294,9 @@ if config['INPUT']['ImportCobblemon'] == "true":
         most_pokemons_leaderboard(player_sum, config, "standard", conn)
 
     # Shiny leaderboard feature
-    player_sum = pd.DataFrame(((cobblemon_df.str.contains("shiny"))).sum().sort_values())
+    knowledge = cobblemon_df.xs("knowledge", level=3)
+    shiny = cobblemon_df.xs("seenShinyStates", level=3)
+    player_sum = ((knowledge == "CAUGHT") & shiny.map(lambda x: isinstance(x, list) and "shiny" in x)).sum().sort_values().to_frame("nb_shinies")
     player_sum['index'] = range(len(player_sum), 0, -1)
     player_sum = player_sum.iloc[::-1]
     ignore_names = [name.strip() for name in config['COBBLEMONLEADERBOARDS']['IgnoreNames'].split(",") if name.strip()]
