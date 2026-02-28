@@ -485,9 +485,9 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                 temp_df = pd.json_normalize(temp_df, meta_prefix=True)
                 temp_df = pd.DataFrame(temp_df)
                 temp_df = temp_df.transpose().iloc[:]
-                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
+                temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
                 if temp_name.empty:
-                    print("No username found for UUID", filename[:-5], " in usercache.json, using UUID for this player instead.")
+                    print("No username found for UUID", filename[:-4], " in usercache.json, using UUID for this player instead.")
                     temp_name = filename[:-5]
                     temp_df = temp_df.rename({0: temp_name}, axis=1)
                 else:
@@ -611,6 +611,7 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
             depth = len([x for x in current_path.split("/") if x]) if current_path != "/" else 0
             if depth > 0:
                 ftpserver.chdir("../" * depth)
+    
     # Manual or local
     else:
         if inputmode == "manual":
@@ -640,9 +641,9 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                 temp_df = pd.json_normalize(temp_df, meta_prefix=True)
                 temp_df = pd.DataFrame(temp_df)
                 temp_df = temp_df.transpose().iloc[:]
-                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
+                temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
                 if temp_name.empty:
-                    print("No username found for UUID", filename[:-5], " in usercache.json, using UUID for this player instead.")
+                    print("No username found for UUID", filename[:-4], "in usercache.json, using UUID for this player instead.")
                     temp_name = filename[:-5]
                     temp_df = temp_df.rename({0: temp_name}, axis=1)
                 else:
@@ -697,10 +698,12 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                     df5[temp_name] = np.nan
                 
             i += 1
+
     # Replace missing values by 0 (the stat has simply not been initialized because the associated action was not performed)
     df = df.fillna(0)
-    df = df[df.index.get_level_values(1) != "aspects"]
     df5 = df5.fillna(0)
+    # Remove useless rows
+    df = df[df.index.get_level_values(1) != "aspects"]
     print(df)
     df.to_csv('test.csv')
     if csvtoggle == "true":
