@@ -942,7 +942,7 @@ def cobblemon_types_barchart(df, config):
     df = pd.merge(df, pokemon_types_df, left_on=df.index, right_on='en')
     barchart = plt.bar(df['fr'], df['proportion'], color=df['color'])
     mc_font = fm.FontProperties(fname='fonts/Minecraft-Seven_v2.ttf')
-    plt.bar_label(barchart, df['fr'], padding=6, rotation=90, fontsize=18, fontweight='bold', font=mc_font, color='white')
+    plt.bar_label(barchart, df['fr'], padding=6, rotation=90, fontsize=16, fontweight='bold', font=mc_font, color='white')
     plt.xticks([], [])
     plt.gca().tick_params(axis='y', colors='white')
     plt.gca().yaxis.set_major_formatter(ticker.PercentFormatter(decimals=0))
@@ -1003,7 +1003,7 @@ def stats_pokeballs(config, ftpserver):
         for filename in os.listdir("data/pokemon/pcstore"):
             file_path = os.path.join("data/pokemon/pcstore", filename)
             try:
-                if filename == ".gitignore":
+                if filename == ".gitignore" or filename[-4:] == ".old":
                     continue
                 if os.path.isfile(file_path) or os.path.islink(file_path):
                     os.unlink(file_path)
@@ -1055,7 +1055,11 @@ def stats_pokeballs(config, ftpserver):
                 box_count = int(nbtfile['BoxCount'].value)
                 balls = {}
                 for box in range(box_count):
+                    if len(nbtfile['Box'+str(box)]) == 1:
+                        continue
                     for slot in nbtfile['Box'+str(box)]:
+                        if type(nbtfile['Box'+str(box)][slot]) == nbt.nbt.TAG_String:
+                            continue
                         ball = nbtfile['Box'+str(box)][slot]['CaughtBall'].value
                         try:
                             balls[ball] += 1
@@ -1090,7 +1094,7 @@ def stats_pokeballs(config, ftpserver):
             if len(dirnames) > 0:
                 root_dirnames = dirnames
             for filename in filenames:
-                if filename == ".gitignore":
+                if filename == ".gitignore" or filename[-4:] == ".old":
                     continue
                 print("Now processing", filename)
                     
@@ -1100,7 +1104,11 @@ def stats_pokeballs(config, ftpserver):
                 box_count = int(nbtfile['BoxCount'].value)
                 balls = {}
                 for box in range(box_count):
+                    if len(nbtfile['Box'+str(box)]) == 1:
+                        continue
                     for slot in nbtfile['Box'+str(box)]:
+                        if type(nbtfile['Box'+str(box)][slot]) == nbt.nbt.TAG_String:
+                            continue
                         ball = nbtfile['Box'+str(box)][slot]['CaughtBall'].value
                         try:
                             balls[ball] += 1
@@ -1332,7 +1340,7 @@ if config['INPUT']['ImportCobblemon'] == "true":
     #print(player_sum)
     leaderboards["cobblemon_money"] = player_sum
     if config['COBBLEMONLEADERBOARDS']['MoneyEnable'] == "true":
-        most_pokemons_leaderboard(player_sum, config, "money",  conn)
+        most_pokemons_leaderboard(player_sum, config, "money", conn)
 
 if config['TOPIMAGE']['Enable'] == "true":
     leaderboards_to_show = []
@@ -1381,9 +1389,10 @@ if config['TOPIMAGE']['Enable'] == "true":
     # Minecraft-style top feature
     top_image(leaderboards_to_show, config, config['TOPIMAGE']['Titles'].split(","), special_list)
 
-# Duels network graph
+# [DEPRECATED] Duels network graph
 if config['PVPNETWORK']['Enable'] == "true":
-    PvP_network(cobblemon_df4, config)
+    print("[DEPRECATED] Unfortunately, the duels network graph feature is deprecated, since the PvP history does not seem to be available anymore.")
+    #PvP_network(cobblemon_df4, config)
 
 # Cobblemon types barchart
 if config['TYPESBARCHART']['Enable'] == "true":
