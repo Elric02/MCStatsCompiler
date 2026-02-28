@@ -81,6 +81,17 @@ def list_sftp_directory(sftp, path="."):
     except Exception as e:
         print(f"Error listing directory: {e}")
 
+def unpack_nbt(tag):
+    """
+    NBT lib: Unpack an NBT tag into a native Python data structure.
+    """
+    if isinstance(tag, nbt.nbt.TAG_List):
+        return [unpack_nbt(i) for i in tag.tags]
+    elif isinstance(tag, nbt.nbt.TAG_Compound):
+        return dict((i.name, unpack_nbt(i)) for i in tag.tags)
+    else:
+        return tag.value
+
 
 def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath, csvtogglemoney, csvpathmoney, importcobblemon):
     df = pd.DataFrame()
@@ -455,6 +466,8 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
             for filename in filenames:
                 if filename == "." or filename == "..":
                     continue
+                if filename[-4:] == ".old":
+                    continue
                 print("Now processing", filename)
                 
                 # Download the file to process
@@ -465,10 +478,11 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                     else:
                         ftpserver.get(filename, local_file)
                 
-                nbtfile = nbt.nbt.NBTFile(local_file,'r')
-                data = nbtfile['extraData']['cobbledex_discovery']['registers']
-                advancementData = nbtfile['advancementData']
+                with open(local_file, 'rb') as f:
+                    nbtfile = nbt.nbt.NBTFile(buffer=f)
+                data = nbtfile['speciesRecords']
                 
+                #TODO: adapt all of this
                 temp_df = pd.json_normalize(data, meta_prefix=True)
                 temp_df = temp_df.transpose().iloc[:]
                 temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
@@ -549,6 +563,8 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
             for filename in filenames:
                 if filename == "." or filename == "..":
                     continue
+                if filename[-4:] == ".old":
+                    continue
                 print("Now processing", filename)
                 
                 # Download the file to process
@@ -561,13 +577,7 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                 
                 with open(local_file, "r") as file:
                     json_file = json.load(file)
-                    data = json_file['extraData']['cobbledex_discovery']['registers']
                     advancementData = json_file['advancementData']
-                    captureCountData = json_file['extraData']['captureCount']['defeats']
-                    try:
-                        duelsData = json_file['extraData']['cobblenavContactData']['contacts']
-                    except KeyError:
-                        duelsData = None
                     
                 df2.loc["totalPvPBattleVictoryCount", temp_name] = advancementData['totalPvPBattleVictoryCount']
                 df2.loc["totalPvWBattleVictoryCount", temp_name] = advancementData['totalPvWBattleVictoryCount']
@@ -600,35 +610,40 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
             depth = len([x for x in current_path.split("/") if x]) if current_path != "/" else 0
             if depth > 0:
                 ftpserver.chdir("../" * depth)
+    # Manual or local
     else:
         if inputmode == "manual":
             names_file = open('data/usercache/usercache.json', 'r')
         elif inputmode == "local":
             names_file = open(localpath+'/usercache.json', 'r')
         names = pd.DataFrame(json.load(names_file))
+
+        # pokedex
         if inputmode == "manual":
-            path = 'data/cobblemonplayerdata'
+            path = 'data/pokedex'
         if inputmode == "local":
-            path = localpath+'/world/cobblemonplayerdata'
+            path = localpath+'/world/pokedex'
         i = -1
         for dirpath, dirnames, filenames in os.walk(path):
             if len(dirnames) > 0:
                 root_dirnames = dirnames
             for filename in filenames:
-                if filename == ".gitignore":
+                if filename == ".gitignore"or filename[-4:] == ".old":
                     continue
                 print("Now processing", filename)
-                file = open(path + '/' + root_dirnames[i] + '/' + filename)
-                json_file = json.load(file)
-                data = json_file['extraData']['cobbledex_discovery']['registers']
-                advancementData = json_file['advancementData']
-                captureCountData = json_file['extraData']['captureCount']['defeats']
-                try:
-                    duelsData = json_file['extraData']['cobblenavContactData']['contacts']
-                except KeyError:
-                    duelsData = None
+                complete_path = path + '/' + root_dirnames[i] + '/' + filename
+                with open(complete_path, 'rb') as f:
+                    nbtfile = nbt.nbt.NBTFile(buffer=f)
+                data = nbtfile['speciesRecords']
+                temp_df = unpack_nbt(data)
+                temp_df = pd.json_normalize(temp_df, meta_prefix=True)
+                temp_df = pd.DataFrame(temp_df)
+                print(temp_df)
+                temp_df = temp_df.transpose().iloc[:]
+                print(temp_df)
+                exit()
                     
-                # Import the JSON to a Pandas DF
+                # TODO: adapt all of this
                 temp_df = pd.json_normalize(data, meta_prefix=True)
                 temp_df = temp_df.transpose().iloc[:]
                 temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
@@ -647,46 +662,29 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                         df = df.join(temp_df, how="outer")
                 else:
                     df[temp_name] = np.nan
+
+            i += 1
+
+        # cobblemonplayerdata
+        if inputmode == "manual":
+            path = 'data/cobblemonplayerdata'
+        if inputmode == "local":
+            path = localpath+'/world/cobblemonplayerdata'
+        i = -1
+        for dirpath, dirnames, filenames in os.walk(path):
+            if len(dirnames) > 0:
+                root_dirnames = dirnames
+            for filename in filenames:
+                if filename == ".gitignore":
+                    continue
+                print("Now processing", filename)
+                file = open(path + '/' + root_dirnames[i] + '/' + filename)
+                json_file = json.load(file)
+                advancementData = json_file['advancementData']
                     
                 df2.loc["totalPvPBattleVictoryCount", temp_name] = advancementData['totalPvPBattleVictoryCount']
                 df2.loc["totalPvWBattleVictoryCount", temp_name] = advancementData['totalPvWBattleVictoryCount']
                 df2.loc["totalTradedCount", temp_name] = advancementData['totalTradedCount']
-                
-                temp_df = pd.json_normalize(captureCountData, meta_prefix=True)
-                temp_df = temp_df.transpose().iloc[:]
-                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
-                if temp_name.empty:
-                    temp_name = filename[:-5]
-                    temp_df = temp_df.rename({0: temp_name}, axis=1)
-                else:
-                    temp_df = temp_df.rename({0: temp_name.iloc[0]}, axis=1)
-                if not temp_df.empty:
-                    if df3.empty:
-                        df3 = temp_df
-                    else:
-                        df3 = df3.join(temp_df, how="outer")
-                else:
-                    df3[temp_name] = np.nan
-                
-                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
-                if duelsData != None:
-                    temp_df = pd.json_normalize(duelsData, meta_prefix=True)
-                    temp_df = temp_df.transpose().iloc[:]
-                    temp_df = pd.DataFrame(temp_df.T.stack())
-                else:
-                    temp_df = pd.DataFrame()
-                if temp_name.empty:
-                    temp_name = filename[:-5]
-                    temp_df = temp_df.rename({0: temp_name}, axis=1)
-                else:
-                    temp_df = temp_df.rename({0: temp_name.iloc[0]}, axis=1)
-                if not temp_df.empty:
-                    if df4.empty:
-                        df4 = temp_df
-                    else:
-                        df4 = df4.join(temp_df, how="outer")
-                else:
-                    df4[temp_name] = np.nan
                     
                 temp_df = pd.json_normalize(advancementData['totalTypeCaptureCounts'], meta_prefix=True)
                 temp_df = temp_df.transpose().iloc[:]
