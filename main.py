@@ -374,9 +374,9 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
     df = pd.DataFrame()
     # Contains PvP and PvW victory counts
     df2 = pd.DataFrame()
-    # Contains captureCount/defeats
+    # [DEPRECATED/UNUSED] Contains captureCount/defeats
     df3 = pd.DataFrame()
-    # Contains PvP duels
+    # [DEPRECATED/UNUSED] Contains PvP duels
     df4 = pd.DataFrame()
     # Contains totalTypeCaptureCounts
     df5 = pd.DataFrame()
@@ -468,11 +468,6 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                 nbtfile = nbt.nbt.NBTFile(local_file,'r')
                 data = nbtfile['extraData']['cobbledex_discovery']['registers']
                 advancementData = nbtfile['advancementData']
-                captureCountData = nbtfile['extraData']['captureCount']['defeats']
-                try:
-                    duelsData = nbtfile['extraData']['cobblenavContactData']['contacts']
-                except KeyError:
-                    duelsData = None
                 
                 temp_df = pd.json_normalize(data, meta_prefix=True)
                 temp_df = temp_df.transpose().iloc[:]
@@ -491,42 +486,6 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                         df = df.join(temp_df, how="outer")
                 else:
                     df[temp_name] = np.nan
-                
-                temp_df = pd.json_normalize(captureCountData, meta_prefix=True)
-                temp_df = temp_df.transpose().iloc[:]
-                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
-                if temp_name.empty:
-                    temp_name = filename[:-5]
-                    temp_df = temp_df.rename({0: temp_name}, axis=1)
-                else:
-                    temp_df = temp_df.rename({0: temp_name.iloc[0]}, axis=1)
-                if not temp_df.empty:
-                    if df3.empty:
-                        df3 = temp_df
-                    else:
-                        df3 = df3.join(temp_df, how="outer")
-                else:
-                    df3[temp_name] = np.nan
-                
-                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
-                if duelsData != None:
-                    temp_df = pd.json_normalize(duelsData, meta_prefix=True)
-                    temp_df = temp_df.transpose().iloc[:]
-                    temp_df = pd.DataFrame(temp_df.T.stack())
-                else:
-                    temp_df = pd.DataFrame()
-                if temp_name.empty:
-                    temp_name = filename[:-5]
-                    temp_df = temp_df.rename({0: temp_name}, axis=1)
-                else:
-                    temp_df = temp_df.rename({0: temp_name.iloc[0]}, axis=1)
-                if not temp_df.empty:
-                    if df4.empty:
-                        df4 = temp_df
-                    else:
-                        df4 = df4.join(temp_df, how="outer")
-                else:
-                    df4[temp_name] = np.nan
 
             if inputmode == "ftp":
                 ftpserver.cwd("../")  # Move back to the parent directory
