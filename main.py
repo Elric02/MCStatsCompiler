@@ -1256,6 +1256,7 @@ if config['BESTANDWORST']['Enable'] == "true":
 # Prepare the counting DF
 if config['INPUT']['ImportCobblemon'] == "true":
     count_df = cobblemon_df.drop(['genders', 'seenShinyStates'], level=3)
+    count_df.index = count_df.index.set_levels(count_df.index.levels[0].str.replace("cobblemon:", "", regex=False), level=0)
     pokemons_db = pd.read_csv('staticdata/Pokemon.csv')
     legendary_list = pokemons_db.loc[pokemons_db['Legendary'] == True]
 
