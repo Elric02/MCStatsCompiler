@@ -949,6 +949,7 @@ def cobblemon_types_barchart(df, config):
     plt.gca().set_facecolor('none') # Set transparent background
     for spine in plt.gca().spines.values(): # Remove the figure border
         spine.set_visible(False)
+    plt.tight_layout()
     plt.savefig(config['TYPESBARCHART']['ImagePath'], dpi=299, transparent=True)
     plt.clf()
     
