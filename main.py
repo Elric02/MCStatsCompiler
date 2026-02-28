@@ -93,7 +93,7 @@ def unpack_nbt(tag):
         return tag.value
 
 
-def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath, csvtogglemoney, csvpathmoney, importcobblemon):
+def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath, csvtogglemoney, csvpathmoney, importcobblemon, worldname):
     df = pd.DataFrame()
     money = {}
     waystones = {}
@@ -102,13 +102,13 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
     if inputmode == "ftp" or inputmode == "sftp":
         
         if ftppath == "":
-            ftppath_complete_stats = "world/stats"
-            ftppath_complete_playerdata = "world/playerdata"
-            ftppath_complete_advancements = "world/advancements"
+            ftppath_complete_stats = worldname + "/stats"
+            ftppath_complete_playerdata = worldname + "/playerdata"
+            ftppath_complete_advancements = worldname + "/advancements"
         else:
-            ftppath_complete_stats = ftppath + "/world/stats"
-            ftppath_complete_playerdata = ftppath + "/world/playerdata"
-            ftppath_complete_advancements = ftppath + "/world/advancements"
+            ftppath_complete_stats = ftppath + "/" + worldname + "/stats"
+            ftppath_complete_playerdata = ftppath + "/" + worldname + "/playerdata"
+            ftppath_complete_advancements = ftppath + "/" + worldname + "/advancements"
         if inputmode == "ftp":
             ftpserver.cwd(ftppath)
             with open("data/usercache/usercache.json", "wb") as file:
@@ -299,8 +299,8 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
             stats_path = 'data/stats'
             advancements_path = 'data/advancements'
         if inputmode == "local":
-            playerdata_path = localpath+'/world/playerdata'
-            advancements_path = localpath+'/world/advancements'
+            playerdata_path = localpath+'/' + worldname + '/playerdata'
+            advancements_path = localpath+'/' + worldname + '/advancements'
             
         # Stats
         for filename in os.listdir(stats_path):
@@ -380,7 +380,7 @@ def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath
         money.to_csv(csvpathmoney)
     return df, money, waystones, advancements
 
-def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath):
+def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath, worldname):
     # Contains cobbledex_discovery/registers
     df = pd.DataFrame()
     # Contains PvP and PvW victory counts
@@ -397,9 +397,9 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
 
     if inputmode == "ftp" or inputmode == "sftp":
         if ftppath == "":
-            ftppath_complete = "world/pokedex"
+            ftppath_complete = worldname + "/pokedex"
         else:
-            ftppath_complete = ftppath + "/world/pokedex"
+            ftppath_complete = ftppath + "/" + worldname + "/pokedex"
         if inputmode == "ftp":
             ftpserver.cwd(ftppath)
             with open("data/usercache/usercache.json", "wb") as file:
@@ -518,9 +518,9 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
         # cobblemonplayerdata
 
         if ftppath == "":
-            ftppath_complete = "world/cobblemonplayerdata"
+            ftppath_complete = worldname + "/cobblemonplayerdata"
         else:
-            ftppath_complete = ftppath + "/world/cobblemonplayerdata"
+            ftppath_complete = ftppath + "/" + worldname + "/cobblemonplayerdata"
         if inputmode == "ftp":
             # Get directories
             root_dirnames = ftpserver.nlst(ftppath_complete)
@@ -624,7 +624,7 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
         if inputmode == "manual":
             path = 'data/pokedex'
         if inputmode == "local":
-            path = localpath+'/world/pokedex'
+            path = localpath+'/'+worldname+'/pokedex'
         i = -1
         for dirpath, dirnames, filenames in os.walk(path):
             if len(dirnames) > 0:
@@ -664,7 +664,7 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
         if inputmode == "manual":
             path = 'data/cobblemonplayerdata'
         if inputmode == "local":
-            path = localpath+'/world/cobblemonplayerdata'
+            path = localpath+'/'+worldname+'/cobblemonplayerdata'
         i = -1
         for dirpath, dirnames, filenames in os.walk(path):
             if len(dirnames) > 0:
@@ -960,9 +960,9 @@ def stats_pokeballs(config, ftpserver):
     
     if config['INPUT']['Mode'] == "ftp" or config['INPUT']['Mode'] == "sftp":
         if config['INPUT']['FTPPath'] == "":
-            ftppath_complete = "world/pokemon/pcstore"
+            ftppath_complete = config['INPUT']['WorldName'] + "/pokemon/pcstore"
         else:
-            ftppath_complete = config['INPUT']['FTPPath'] + "/world/pokemon/pcstore"
+            ftppath_complete = config['INPUT']['FTPPath'] + "/" + config['INPUT']['WorldName'] + "/pokemon/pcstore"
         if config['INPUT']['Mode'] == "ftp":
             ftpserver.cwd(config['INPUT']['FTPPath'])
             with open("data/usercache/usercache.json", "wb") as file:
@@ -1089,7 +1089,7 @@ def stats_pokeballs(config, ftpserver):
         if config['INPUT']['Mode'] == "manual":
             path = 'data/pokemon/pcstore'
         if config['INPUT']['Mode'] == "local":
-            path = config['INPUT']['LocalPath']+'/world/pokemon/pcstore'
+            path = config['INPUT']['LocalPath']+'/'+config['INPUT']['WorldName']+'/pokemon/pcstore'
         i = -1
         for dirpath, dirnames, filenames in os.walk(path):
             if len(dirnames) > 0:
@@ -1237,12 +1237,12 @@ conn = init_database("scoreboard.db")
 
 # Load the vanilla data
 print("LOADING VANILLA DATA")
-vanilla_df, money_df, waystones_df, advancements_df = loadVanillaData(config['VANILLALEADERBOARD']['CreateCSV'], config['VANILLALEADERBOARD']['CSVPath'], config['INPUT']['Mode'], ftp_server, config['INPUT']['FTPPath'], config['INPUT']['LocalPath'], config['VANILLALEADERBOARD']['CreateCSVMoney'], config['VANILLALEADERBOARD']['CSVPathMoney'], config['INPUT']['ImportCobblemon'])
+vanilla_df, money_df, waystones_df, advancements_df = loadVanillaData(config['VANILLALEADERBOARD']['CreateCSV'], config['VANILLALEADERBOARD']['CSVPath'], config['INPUT']['Mode'], ftp_server, config['INPUT']['FTPPath'], config['INPUT']['LocalPath'], config['VANILLALEADERBOARD']['CreateCSVMoney'], config['VANILLALEADERBOARD']['CSVPathMoney'], config['INPUT']['ImportCobblemon'], config['INPUT']['WorldName'])
 
 # Load the Cobblemon data
 if config['INPUT']['ImportCobblemon'] == "true":
     print("LOADING COBBLEMON DATA")
-    cobblemon_df, cobblemon_df2, cobblemon_df3, cobblemon_df4, cobblemon_df5 = loadCobblemonData(config['GLOBALMATRIX']['CreateCSV'], config['GLOBALMATRIX']['CSVPath'], config['INPUT']['Mode'], ftp_server, config['INPUT']['FTPPath'], config['INPUT']['LocalPath'])
+    cobblemon_df, cobblemon_df2, cobblemon_df3, cobblemon_df4, cobblemon_df5 = loadCobblemonData(config['GLOBALMATRIX']['CreateCSV'], config['GLOBALMATRIX']['CSVPath'], config['INPUT']['Mode'], ftp_server, config['INPUT']['FTPPath'], config['INPUT']['LocalPath'], config['INPUT']['WorldName'])
 
 
 # First leaderboard testing
