@@ -478,7 +478,7 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                     else:
                         ftpserver.get(filename, local_file)
                 
-                with open(complete_path, 'rb') as f:
+                with open(local_file, 'rb') as f:
                     nbtfile = nbt.nbt.NBTFile(buffer=f)
                 data = nbtfile['speciesRecords']
                 temp_df = unpack_nbt(data)
@@ -1004,7 +1004,7 @@ def stats_pokeballs(config, ftpserver):
         for filename in os.listdir("data/pokemon/pcstore"):
             file_path = os.path.join("data/pokemon/pcstore", filename)
             try:
-                if filename == ".gitignore" or filename[-4:] == ".old":
+                if filename == ".gitignore":
                     continue
                 if os.path.isfile(file_path) or os.path.islink(file_path):
                     os.unlink(file_path)
@@ -1039,6 +1039,8 @@ def stats_pokeballs(config, ftpserver):
             os.mkdir("data/pokemon/pcstore/"+subfolder)
             for filename in filenames:
                 if filename == "." or filename == "..":
+                    continue
+                if filename[-4:] == ".old":
                     continue
                 print("Now processing", filename)
                 
