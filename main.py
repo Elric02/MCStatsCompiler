@@ -630,7 +630,7 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
             if len(dirnames) > 0:
                 root_dirnames = dirnames
             for filename in filenames:
-                if filename == ".gitignore"or filename[-4:] == ".old":
+                if filename == ".gitignore" or filename[-4:] == ".old":
                     continue
                 print("Now processing", filename)
                 complete_path = path + '/' + root_dirnames[i] + '/' + filename
@@ -670,7 +670,7 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
             if len(dirnames) > 0:
                 root_dirnames = dirnames
             for filename in filenames:
-                if filename == ".gitignore":
+                if filename == ".gitignore" or filename[-4:] == ".old":
                     continue
                 print("Now processing", filename)
                 file = open(path + '/' + root_dirnames[i] + '/' + filename)
@@ -704,8 +704,6 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
     df5 = df5.fillna(0)
     # Remove useless rows
     df = df[df.index.get_level_values(1) != "aspects"]
-    print(df)
-    df.to_csv('test.csv')
     if csvtoggle == "true":
         df.to_csv(csvpath)
     return df, df2, df3, df4, df5
@@ -1248,17 +1246,9 @@ if config['BESTANDWORST']['Enable'] == "true":
 
 # Prepare the counting DF
 if config['INPUT']['ImportCobblemon'] == "true":
-    count_df = cobblemon_df.drop(['caughtTimestamp', 'discoveredTimestamp', 'isShiny'], level=2)
+    count_df = cobblemon_df.drop(['genders', 'seenShinyStates'], level=3)
     pokemons_db = pd.read_csv('staticdata/Pokemon.csv')
     legendary_list = pokemons_db.loc[pokemons_db['Legendary'] == True]
-    # Don't count twice muk alola and grimer alola
-    new_values = ["CAUGHT" if value1 == "CAUGHT" or value2 == "CAUGHT" else 0 for (value1, value2) in zip(count_df.loc[[('muk', 'alola', 'status')]].values[0], count_df.loc[[('mukalolan', 'normal', 'status')]].values[0])]
-    count_df.loc[[('muk', 'alola', 'status')]] = new_values
-    new_values = ["CAUGHT" if value1 == "CAUGHT" or value2 == "CAUGHT" else 0 for (value1, value2) in zip(count_df.loc[[('grimer', 'alola', 'status')]].values[0], count_df.loc[[('grimeralolan', 'normal', 'status')]].values[0])]
-    count_df.loc[[('grimer', 'alola', 'status')]] = new_values
-    count_df.drop('mukalolan', level=0, inplace=True)
-    count_df.drop('grimeralolan', level=0, inplace=True)
-
 
     # Other counting features
     count_df['times_caught'] = count_df.apply(lambda row: (row == "CAUGHT").sum(), axis=1)
@@ -1293,6 +1283,7 @@ if config['INPUT']['ImportCobblemon'] == "true":
 
     # Total leaderboard feature
     player_sum = pd.DataFrame((count_df == "CAUGHT").sum().sort_values())
+    print(player_sum)
     player_sum['index'] = range(len(player_sum), 0, -1)
     player_sum = player_sum.iloc[::-1]
     ignore_names = [name.strip() for name in config['COBBLEMONLEADERBOARDS']['IgnoreNames'].split(",") if name.strip()]
@@ -1303,7 +1294,7 @@ if config['INPUT']['ImportCobblemon'] == "true":
         most_pokemons_leaderboard(player_sum, config, "standard", conn)
 
     # Shiny leaderboard feature
-    player_sum = pd.DataFrame(((cobblemon_df == "True") | (cobblemon_df == True)).sum().sort_values())
+    player_sum = pd.DataFrame(((cobblemon_df.str.contains("shiny"))).sum().sort_values())
     player_sum['index'] = range(len(player_sum), 0, -1)
     player_sum = player_sum.iloc[::-1]
     ignore_names = [name.strip() for name in config['COBBLEMONLEADERBOARDS']['IgnoreNames'].split(",") if name.strip()]
