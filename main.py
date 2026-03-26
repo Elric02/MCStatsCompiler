@@ -1,5 +1,3 @@
-#TODO: manage correctly importdatas etc based on enabled features
-
 import json
 import os
 import pandas as pd
@@ -91,6 +89,21 @@ def unpack_nbt(tag):
         return dict((i.name, unpack_nbt(i)) for i in tag.tags)
     else:
         return tag.value
+
+def hex_to_intarray(uuid_hex):
+    # Remove hyphens and parse as a 128-bit integer
+    hex_str = uuid_hex.replace('-', '')
+    value = int(hex_str, 16)
+    # Split the 128-bit big integer into four signed 32-bit ints
+    target_ints = []
+    for shift in (96, 64, 32, 0):
+        # Extract 32 bits
+        part = (value >> shift) & 0xFFFFFFFF
+        # Convert to signed 32-bit
+        if part >= 0x80000000:
+            part -= 0x100000000
+        target_ints.append(part)
+    return target_ints
 
 
 def loadVanillaData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpath, csvtogglemoney, csvpathmoney, importcobblemon, worldname):
@@ -579,13 +592,13 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                 with open(local_file, "r") as file:
                     json_file = json.load(file)
                     advancementData = json_file['advancementData']
+                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
                     
                 df2.loc["totalPvPBattleVictoryCount", temp_name] = advancementData['totalPvPBattleVictoryCount']
                 df2.loc["totalPvWBattleVictoryCount", temp_name] = advancementData['totalPvWBattleVictoryCount']
                 
                 temp_df = pd.json_normalize(advancementData['totalTypeCaptureCounts'], meta_prefix=True)
                 temp_df = temp_df.transpose().iloc[:]
-                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
                 if temp_name.empty:
                     temp_name = filename[:-5]
                     temp_df = temp_df.rename({0: temp_name}, axis=1)
@@ -676,6 +689,7 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                 file = open(path + '/' + root_dirnames[i] + '/' + filename)
                 json_file = json.load(file)
                 advancementData = json_file['advancementData']
+                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
                     
                 df2.loc["totalPvPBattleVictoryCount", temp_name] = advancementData['totalPvPBattleVictoryCount']
                 df2.loc["totalPvWBattleVictoryCount", temp_name] = advancementData['totalPvWBattleVictoryCount']
@@ -683,7 +697,6 @@ def loadCobblemonData(csvtoggle, csvpath, inputmode, ftpserver, ftppath, localpa
                     
                 temp_df = pd.json_normalize(advancementData['totalTypeCaptureCounts'], meta_prefix=True)
                 temp_df = temp_df.transpose().iloc[:]
-                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
                 if temp_name.empty:
                     temp_name = filename[:-5]
                     temp_df = temp_df.rename({0: temp_name}, axis=1)
@@ -1071,7 +1084,7 @@ def stats_pokeballs(config, ftpserver):
                 df[temp_name.iloc[0]] = balls
                 
             if config['INPUT']['Mode'] == "ftp":
-                ftpserver.cwd("../")  # Move back to the parent directory
+                ftpserver.cwd("../") # Move back to the parent directory
             else:
                 ftpserver.chdir("..")
         # Go back to root
@@ -1123,6 +1136,387 @@ def stats_pokeballs(config, ftpserver):
     # Replace missing values by 0 (the stat has simply not been initialized because the associated action was not performed)
     df = df.fillna(0)
     df.to_csv(config['STATSPOKEBALLS']['CSVPath'])
+
+# Semi-functional code to get the starters for each player. Has worked for me but test at your own peril
+def export_starters(config, ftpserver):
+    print("Now computing the starters...")
+    df = pd.DataFrame()
+    root_dirnames = []
+    
+    if config['INPUT']['Mode'] == "ftp" or config['INPUT']['Mode'] == "sftp":
+        if config['INPUT']['FTPPath'] == "":
+            ftppath_complete = config['INPUT']['WorldName'] + "/cobblemonplayerdata"
+        else:
+            ftppath_complete = config['INPUT']['FTPPath'] + "/" + config['INPUT']['WorldName'] + "/cobblemonplayerdata"
+        if config['INPUT']['Mode'] == "ftp":
+            ftpserver.cwd(config['INPUT']['FTPPath'])
+            with open("data/usercache/usercache.json", "wb") as file:
+                ftpserver.retrbinary(f"RETR usercache.json", file.write)
+            names = pd.DataFrame(json.load(open("data/usercache/usercache.json", "r")))
+            # Go back to root
+            ftpserver.cwd("../" * (len(ftpserver.pwd().split("/"))-1))
+            # Get directories
+            root_dirnames = ftpserver.nlst(ftppath_complete)
+            ftpserver.cwd(ftppath_complete)
+        else:
+            try:
+                ftpserver.chdir(config['INPUT']['FTPPath'])
+            except IOError:
+                print(f"Failed to change to directory {config['INPUT']['FTPPath']}")
+                list_sftp_directory(ftpserver)
+                raise
+            try:
+                ftpserver.get("usercache.json", "data/usercache/usercache.json")
+            except IOError:
+                print("Failed to get usercache.json")
+                list_sftp_directory(ftpserver)
+                raise
+            names = pd.DataFrame(json.load(open("data/usercache/usercache.json", "r")))
+            try:
+                current_path = ftpserver.getcwd()
+                depth = len([x for x in current_path.split("/") if x]) if current_path != "/" else 0
+                if depth > 0:
+                    ftpserver.chdir("../" * depth)  # Return to root
+                print(f"Trying to access {ftppath_complete}")
+                root_dirnames = ftpserver.listdir(ftppath_complete)
+                ftpserver.chdir(ftppath_complete)
+            except IOError:
+                print(f"Failed to access {ftppath_complete}")
+                list_sftp_directory(ftpserver)
+                raise
+        
+        # Start by removing current data files in local
+        for filename in os.listdir("data/cobblemonplayerdata"):
+            file_path = os.path.join("data/cobblemonplayerdata", filename)
+            try:
+                if filename == ".gitignore":
+                    continue
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to remove %s. Reason: %s' % (file_path, e))
+        for dirname in root_dirnames:
+            if dirname[-1] == ".":
+                continue
+            subfolder = dirname.split("/")[-1]
+            # Go to the subfolder
+            if config['INPUT']['Mode'] == "ftp":
+                ftpserver.cwd(dirname.split("/")[-1])
+                filenames = ftpserver.nlst()
+            else:
+                ftpserver.chdir(dirname.split("/")[-1])
+                filenames = ftpserver.listdir()
+            
+            # Create the sub-folder on the local level
+            os.mkdir("data/cobblemonplayerdata/"+subfolder)
+            for filename in filenames:
+                if filename == "." or filename == "..":
+                    continue
+                if filename[-4:] == ".old":
+                    continue
+                print("Now processing", filename)
+                
+                # Download the file to process
+                local_file = "data/cobblemonplayerdata/"+subfolder+"/"+filename
+                with open(local_file, "wb") as file:
+                    if config['INPUT']['Mode'] == "ftp":
+                        ftpserver.retrbinary(f"RETR {filename}", file.write)
+                    else:
+                        ftpserver.get(filename, local_file)
+                
+                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
+                with open(local_file, "r") as file:
+                    json_file = json.load(file)
+                    starterUUID = json_file['starterUUID']
+                df.loc[temp_name.iloc[0], "starterUUID"] = starterUUID
+                
+            if config['INPUT']['Mode'] == "ftp":
+                ftpserver.cwd("../") # Move back to the parent directory
+            else:
+                ftpserver.chdir("..")
+
+        # Go back to root
+        if config['INPUT']['Mode'] == "ftp":
+            ftpserver.cwd("../" * (len(ftpserver.pwd().split("/"))-1))
+        else:
+            current_path = ftpserver.getcwd()
+            depth = len([x for x in current_path.split("/") if x]) if current_path != "/" else 0
+            if depth > 0:
+                ftpserver.chdir("../" * depth)
+
+        if config['INPUT']['FTPPath'] == "":
+            ftppath_complete1 = config['INPUT']['WorldName'] + "/pokemon/pcstore"
+            ftppath_complete2 = config['INPUT']['WorldName'] + "/pokemon/playerpartystore"
+        else:
+            ftppath_complete1 = config['INPUT']['FTPPath'] + "/" + config['INPUT']['WorldName'] + "/pokemon/pcstore"
+            ftppath_complete2 = config['INPUT']['FTPPath'] + "/" + config['INPUT']['WorldName'] + "/pokemon/playerpartystore"
+        if config['INPUT']['Mode'] == "ftp":
+            ftpserver.cwd(config['INPUT']['FTPPath'])
+            with open("data/usercache/usercache.json", "wb") as file:
+                ftpserver.retrbinary(f"RETR usercache.json", file.write)
+            names = pd.DataFrame(json.load(open("data/usercache/usercache.json", "r")))
+            # Go back to root
+            ftpserver.cwd("../" * (len(ftpserver.pwd().split("/"))-1))
+            # Get directories
+            root_dirnames1 = ftpserver.nlst(ftppath_complete1)
+            root_dirnames2 = ftpserver.nlst(ftppath_complete2)
+            ftpserver.cwd(ftppath_complete1)
+        else:
+            try:
+                ftpserver.chdir(config['INPUT']['FTPPath'])
+            except IOError:
+                print(f"Failed to change to directory {config['INPUT']['FTPPath']}")
+                list_sftp_directory(ftpserver)
+                raise
+            try:
+                ftpserver.get("usercache.json", "data/usercache/usercache.json")
+            except IOError:
+                print("Failed to get usercache.json")
+                list_sftp_directory(ftpserver)
+                raise
+            names = pd.DataFrame(json.load(open("data/usercache/usercache.json", "r")))
+            try:
+                current_path = ftpserver.getcwd()
+                depth = len([x for x in current_path.split("/") if x]) if current_path != "/" else 0
+                if depth > 0:
+                    ftpserver.chdir("../" * depth) # Return to root
+                print(f"Trying to access {ftppath_complete1}")
+                root_dirnames1 = ftpserver.listdir(ftppath_complete1)
+                root_dirnames2 = ftpserver.listdir(ftppath_complete2)
+                ftpserver.chdir(ftppath_complete1)
+            except IOError:
+                print(f"Failed to access {ftppath_complete1}")
+                list_sftp_directory(ftpserver)
+                raise
+        
+        # Start by removing current data files in local
+        for filename in os.listdir("data/pokemon/pcstore"):
+            file_path = os.path.join("data/pokemon/pcstore", filename)
+            try:
+                if filename == ".gitignore":
+                    continue
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to remove %s. Reason: %s' % (file_path, e))
+        for filename in os.listdir("data/pokemon/playerpartystore"):
+            file_path = os.path.join("data/pokemon/playerpartystore", filename)
+            try:
+                if filename == ".gitignore":
+                    continue
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to remove %s. Reason: %s' % (file_path, e))
+
+        # Start the search in the pcstore folder
+        for dirname in root_dirnames1:
+            if dirname[-1] == ".":
+                continue
+            subfolder = dirname.split("/")[-1]
+            # Go to the subfolder
+            if config['INPUT']['Mode'] == "ftp":
+                ftpserver.cwd(dirname.split("/")[-1])
+                filenames = ftpserver.nlst()
+            else:
+                ftpserver.chdir(dirname.split("/")[-1])
+                filenames = ftpserver.listdir()
+
+            # Create the sub-folder on the local level
+            os.mkdir("data/pokemon/pcstore/"+subfolder)
+            for filename in filenames:
+                if filename == "." or filename == "..":
+                    continue
+                if filename[-4:] == ".old":
+                    continue
+                print("Now processing", filename)
+                
+                # Download the file to process
+                local_file = "data/pokemon/pcstore/"+subfolder+"/"+filename
+                with open(local_file, "wb") as file:
+                    if config['INPUT']['Mode'] == "ftp":
+                        ftpserver.retrbinary(f"RETR {filename}", file.write)
+                    else:
+                        ftpserver.get(filename, local_file)
+                
+                temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
+                nbtfile1 = nbt.nbt.NBTFile(local_file,'r')
+                box_count = int(nbtfile1['BoxCount'].value)
+                for box in range(box_count):
+                    if len(nbtfile1['Box'+str(box)]) == 1:
+                        continue
+                    for slot in nbtfile1['Box'+str(box)]:
+                        if type(nbtfile1['Box'+str(box)][slot]) == nbt.nbt.TAG_String:
+                            continue
+                        uuid_ints = nbtfile1['Box'+str(box)][slot]['UUID'].value
+                        target_ints = hex_to_intarray(df.loc[temp_name.iloc[0], "starterUUID"])
+                        if uuid_ints == target_ints:
+                            starter = nbtfile1['Box'+str(box)][slot]['Species'].value
+                            df.loc[temp_name.iloc[0], "starter"] = starter
+                            break
+
+            if config['INPUT']['Mode'] == "ftp":
+                ftpserver.cwd("../") # Move back to the parent directory
+            else:
+                ftpserver.chdir("..")
+
+        # Move back 1 level and now we search in the playerpartystore folder
+        if config['INPUT']['Mode'] == "ftp":
+            ftpserver.cwd("../")
+            ftpserver.cwd("playerpartystore")
+        else:
+            ftpserver.chdir("..")
+            ftpserver.chdir("playerpartystore")
+
+        for dirname in root_dirnames2:
+            if dirname[-1] == ".":
+                continue
+            subfolder = dirname.split("/")[-1]
+            # Go to the subfolder
+            if config['INPUT']['Mode'] == "ftp":
+                ftpserver.cwd(dirname.split("/")[-1])
+                filenames = ftpserver.nlst()
+            else:
+                ftpserver.chdir(dirname.split("/")[-1])
+                filenames = ftpserver.listdir()
+            
+            # Create the sub-folder on the local level
+            os.mkdir("data/pokemon/playerpartystore/"+subfolder)
+            for filename in filenames:
+                if filename == "." or filename == "..":
+                    continue
+                if filename[-4:] == ".old":
+                    continue
+                print("Now processing", filename)
+                
+                # Download the file to process
+                local_file = "data/pokemon/playerpartystore/"+subfolder+"/"+filename
+                with open(local_file, "wb") as file:
+                    if config['INPUT']['Mode'] == "ftp":
+                        ftpserver.retrbinary(f"RETR {filename}", file.write)
+                    else:
+                        ftpserver.get(filename, local_file)
+                
+                temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
+                nbtfile2 = nbt.nbt.NBTFile(local_file,'r')
+                print(len(nbtfile2)-1)
+                if len(nbtfile2) == 1:
+                    print("NBT FILE CONTAINS ONLY 1 ELEMENT")
+                for slot in nbtfile2:
+                    try:
+                        if type(nbtfile2[slot]) == nbt.nbt.TAG_String or type(nbtfile2[slot]) == nbt.nbt.TAG_Int:
+                            continue
+                        uuid_ints = nbtfile2[slot]['UUID'].value
+                        target_ints = hex_to_intarray(df.loc[temp_name.iloc[0], "starterUUID"])
+                        if uuid_ints == target_ints:
+                            starter = nbtfile2[slot]['Species'].value
+                            df.loc[temp_name.iloc[0], "starter"] = starter
+                            break
+                    except KeyError:
+                        print(slot+' was skipped as it could not be found')
+            if config['INPUT']['Mode'] == "ftp":
+                ftpserver.cwd("../") # Move back to the parent directory
+            else:
+                ftpserver.chdir("..")
+
+        # Go back to root
+        if config['INPUT']['Mode'] == "ftp":
+            ftpserver.cwd("../" * (len(ftpserver.pwd().split("/"))-1))
+        else:
+            current_path = ftpserver.getcwd()
+            depth = len([x for x in current_path.split("/") if x]) if current_path != "/" else 0
+            if depth > 0:
+                ftpserver.chdir("../" * depth)
+    else:
+        if config['INPUT']['Mode'] == "manual":
+            names_file = open('data/usercache/usercache.json', 'r')
+        elif config['INPUT']['Mode'] == "local":
+            names_file = open(config['INPUT']['LocalPath']+'/usercache.json', 'r')
+        names = pd.DataFrame(json.load(names_file))
+
+        if config['INPUT']['Mode'] == "manual":
+            path = 'data/cobblemonplayerdata'
+        if config['INPUT']['Mode'] == "local":
+            path = config['INPUT']['LocalPath']+'/'+config['INPUT']['WorldName']+'/cobblemonplayerdata'
+        for dirpath, dirnames, filenames in os.walk(path):
+            if len(dirnames) > 0:
+                root_dirnames = dirnames
+            for filename in filenames:
+                if filename == ".gitignore" or filename[-4:] == ".old":
+                    continue
+                print("Now processing", filename)
+                    
+                temp_name = names.loc[names['uuid'] == filename[:-5]]['name']
+                with open(local_file, "r") as file:
+                    json_file = json.load(file)
+                    starterUUID = json_file['starterUUID']
+                    df.loc[temp_name.iloc[0], "starterUUID"] = starterUUID
+
+        # Start the search in the pcstore folder
+        if config['INPUT']['Mode'] == "manual":
+            path = 'data/pokemon/pcstore'
+        if config['INPUT']['Mode'] == "local":
+            path = config['INPUT']['LocalPath']+'/'+config['INPUT']['WorldName']+'/pokemon/pcstore'
+        for dirpath, dirnames, filenames in os.walk(path):
+            if len(dirnames) > 0:
+                root_dirnames = dirnames
+            for filename in filenames:
+                if filename == ".gitignore" or filename[-4:] == ".old":
+                    continue
+                print("Now processing", filename)
+                    
+                temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
+                nbtfile1 = nbt.nbt.NBTFile(local_file,'r')
+                box_count = int(nbtfile1['BoxCount'].value)
+                for box in range(box_count):
+                    if len(nbtfile1['Box'+str(box)]) == 1:
+                        continue
+                    for slot in nbtfile1['Box'+str(box)]:
+                        if type(nbtfile1['Box'+str(box)][slot]) == nbt.nbt.TAG_String:
+                            continue
+                        uuid_ints = nbtfile1['Box'+str(box)][slot]['UUID'].value
+                        target_ints = hex_to_intarray(df.loc[temp_name.iloc[0], "starterUUID"])
+                        if uuid_ints == target_ints:
+                            starter = nbtfile1['Box'+str(box)][slot]['Species'].value
+                            df.loc[temp_name.iloc[0], "starter"] = starter
+                            break
+        
+        # Continue the search in the playerpartystore folder
+        if config['INPUT']['Mode'] == "manual":
+            path = 'data/pokemon/playerpartystore'
+        if config['INPUT']['Mode'] == "local":
+            path = config['INPUT']['LocalPath']+'/'+config['INPUT']['WorldName']+'/pokemon/playerpartystore'
+        for dirpath, dirnames, filenames in os.walk(path):
+            if len(dirnames) > 0:
+                root_dirnames = dirnames
+            for filename in filenames:
+                if filename == ".gitignore" or filename[-4:] == ".old":
+                    continue
+                print("Now processing", filename)
+                    
+                temp_name = names.loc[names['uuid'] == filename[:-4]]['name']
+                nbtfile2 = nbt.nbt.NBTFile(local_file,'r')
+                slot_count = int(nbtfile2['SlotCount'].value)
+                for slot in range(slot_count):
+                    if len(nbtfile2['Slot'+str(slot)]) == 1:
+                        continue
+                    if type(nbtfile2['Slot'+str(slot)]) == nbt.nbt.TAG_String:
+                        continue
+                    uuid_ints = nbtfile2['Slot'+str(slot)]['UUID'].value
+                    target_ints = hex_to_intarray(df.loc[temp_name.iloc[0], "starterUUID"])
+                    if uuid_ints == target_ints:
+                        starter = nbtfile2['Slot'+str(slot)]['Species'].value
+                        df.loc[temp_name.iloc[0], "starter"] = starter
+                        break
+
+    df.to_csv("test_starters.csv")
+    return df
 
 def player_card(config, username, stats_values):
     cards_df = pd.read_csv('staticdata/cards.csv')
@@ -1406,6 +1800,10 @@ if config['TYPESBARCHART']['Enable'] == "true":
 # Cobblemon types barchart
 if config['STATSPOKEBALLS']['Enable'] == "true":
     stats_pokeballs(config, ftp_server)
+
+# Semi-functional code to get the starters for each player. Has worked for me but test at your own peril
+#starters_df = export_starters(config, ftp_server)
+#print(starters_df)
 
 # Custom player cards
 if config['PLAYERCARDS']['Enable'] == "true":
