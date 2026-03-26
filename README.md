@@ -2,9 +2,9 @@
 
 This project aims at taking a bunch of stats data file generated from Minecraft players and outputing nicely formatted statistics.
 
-![Example 1](images/example1.PNG)
-![Example 2](images/example1.PNG)
-![Example 3](images/example1.PNG)
+![Example 1](images/example1.png)
+![Example 2](images/example2.jpg)
+![Example 3](images/example3.png)
 
 ## Disclaimer
 
